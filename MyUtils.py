@@ -32,6 +32,13 @@ def analysis_result(landmarkNum, Off):
 
     return SDR, SD, MRE
 
+def adjustment(ROIs, labels):
+    temoff = (ROIs - labels)
+    temoff[temoff > 0.055] = temoff[temoff > 0.055] * 0 + 0.055
+    temoff[temoff < -0.055] = temoff[temoff < -0.055] * 0 - 0.055
+    ROIs = labels + temoff
+    return ROIs
+
 def get_coordinates_from_coarse_heatmaps(predicted_heatmap, global_coordinate):
     lent = predicted_heatmap.size()[0]
     index = [1, 2, 0]
