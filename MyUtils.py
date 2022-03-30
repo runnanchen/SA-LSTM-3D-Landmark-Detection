@@ -65,6 +65,12 @@ def get_coarse_errors(coordinates1, lables):
 
     return tem_dist
 
+def get_global_feature(ROIs, coarse_feature, landmarkNum):
+    X1, Y1, Z1 = ROIs[:, :, 0], ROIs[:, :, 1], ROIs[:, :, 2]
+    L, H, W = coarse_feature.size()[-3:]
+    X1, Y1, Z1 = np.round(X1 * (H - 1)).astype("int"), np.round(Y1 * (W - 1)).astype("int"), np.round(Z1 * (L - 1)).astype("int")
+    global_embedding = torch.cat([coarse_feature[:, :, Z1[0, i], X1[0, i], Y1[0, i]] for i in range(landmarkNum)], dim=0).unsqueeze(0)
+    return global_embedding
 
 def getcropedInputs(ROIs, inputs_origin, cropSize, useGPU):
     landmarks = ROIs
