@@ -143,7 +143,41 @@ class U_Net3D(nn.Module):
         y = self.Rconv1(x)
         return y
 
+class graph_attention(nn.Module):
+    def __init__(self, feature_size, usegpu):
+        super(graph_attention, self).__init__()
+        c = feature_size
+        self.c = c
+        self.usegpu = usegpu
+        self.i = nn.Sequential(
+            nn.Linear(c+3, c//2),
+        )
+        self.j = nn.Sequential(
+            nn.Linear(c+3, c//2),
+        )
+        self.k = nn.Sequential(
+            nn.Linear(c+3, c//2),
+        )
+        self.restore = nn.Sequential(
+            nn.Linear(c//2, c),
+        )
 
+    def forward(self, ROIs, features):
+        input_size = features.size()
+        features_concat = torch.cat((ROIs, features), dim=2).squeeze()
+        fi = self.i(features_concat)
+        fj = self.j(features_concat).permute(1, 0)
+        fk = self.k(features_concat)
+
+        attention_ij = torch.sigmoid(torch.matmul(fi, fj))
+        attention_sum = torch.sum(attention_ij, 1).view(-1, 1)
+        attention_ij = attention_ij/attention_sum
+        # attention_ij = torch.softmax(attention_ij, dim=1)
+        features = features + self.restore(torch.matmul(attention_ij, fk))
+
+        return features.view(input_size)
+
+    
 class embedding_net(nn.Module):
     def __init__(self, fin, fout):
         super(embedding_net, self).__init__()
