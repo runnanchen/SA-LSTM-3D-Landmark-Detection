@@ -6,10 +6,10 @@ This is the source code of [Structure-Aware Long Short-Term Memory Network for 3
 - PyTorch 1.7.0
 
 ## Dataset and setup
-- Because of the confidentiality agreement, we could not provide patient's CBCT publiclly, 
+- Because of the confidentiality agreement, we could not publicly provide the patient's CBCT. However, you could apply the core code in other datasets.
 
 ## Training and validation
-- python main.py
+- python landmark.py
 
 ## Reference
 
