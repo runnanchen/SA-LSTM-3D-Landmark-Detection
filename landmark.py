@@ -18,76 +18,92 @@ from MyDataLoader import Rescale, ToTensor, LandmarksDataset
 import MyModel
 import TrainNet
 import LossFunction
+import argparse
 
 plt.ion()  # interactive mode
-batchSize = 1
-landmarkNum = 17
-image_scale = (72, 96, 96)
-original_image_scale = (576, 768, 768)
-cropSize = (32, 32, 32)
-use_gpu = 0
-iteration = 3
-traincsv = 'skull_train1_m_mini.csv'
-testcsv = 'skull_test1_m_mini.csv'
+# Data augmentation and normalization for training
 
-dataRoot = "processed_data/"
-epochs = 1000
-saveName = "test"
-testName = "190VGG19_bn_concatFPN_originOff_withIceptionkernel_newdata_32_noPretrain_try.pkl"
 
-fine_LSTM = MyModel.fine_LSTM(landmarkNum, use_gpu, iteration, cropSize).cuda(use_gpu)
-corseNet = MyModel.coarseNet(landmarkNum, use_gpu, image_scale).cuda(use_gpu)
+parser = argparse.ArgumentParser()
+parser.add_argument("--batchSize", type=int, default=1)
+parser.add_argument("--landmarkNum", type=int, default=17)
+parser.add_argument("--image_scale", default=(72, 96, 96), type=tuple)
+parser.add_argument("--origin_image_size", default=(576, 768, 768), type=tuple)
+parser.add_argument("--crop_size", default=(32, 32, 32), type=tuple)
+parser.add_argument("--use_gpu", type=int, default=0)
+parser.add_argument("--iteration", type=int, default=3)
 
-print("image scale ", image_scale)
+parser.add_argument("--traincsv", type=str, default='skull_train1_m_minimini.csv')
+parser.add_argument("--testcsv", type=str, default='skull_test1_m_minimini.csv')
+parser.add_argument("--saveName", type=str, default='test')
+parser.add_argument("--testName", type=str, default="Full_final_64")
 
-print("GPU: ", use_gpu)
-print(saveName)
+parser.add_argument("--R1", type=int, default=5)
+parser.add_argument("--R2", type=int, default=9)
 
-transform_origin = transforms.Compose([
-    Rescale(image_scale),
-    ToTensor()
-])
+parser.add_argument("--epochs", type=int, default=500)
+parser.add_argument("--data_enhanceNum", type=int, default=1)
+parser.add_argument("--stage", type=str, default="train")
 
-train_dataset_origin = LandmarksDataset(csv_file=dataRoot + traincsv,
-                                        root_dir=dataRoot + "images",
-                                        transform=transform_origin,
-                                        landmarksNum=landmarkNum
-                                        )
 
-val_dataset = LandmarksDataset(csv_file=dataRoot + testcsv,
-                               root_dir=dataRoot + "images",
-                               transform=transform_origin,
-                               landmarksNum=landmarkNum
-                               )
+def main():
+    config = parser.parse_args()
+    fine_LSTM = MyModel.fine_LSTM(config).cuda(config.use_gpu)
+    coarseNet = MyModel.coarseNet(config).cuda(config.use_gpu)
 
-dataloaders = {}
-train_dataloader = []
-val_dataloader = []
+    if config.stage == 'test':
+        fine_LSTM = torch.load('output/' + "730" + config.testName + "fine_LSTM.pkl", map_location=lambda storage, loc:storage.cuda(config.use_gpu))
+        coarseNet = torch.load('output/' + "730" + config.testName + "coarse.pkl", map_location=lambda storage, loc:storage.cuda(config.use_gpu))
 
-train_dataloader_t = DataLoader(train_dataset_origin, batch_size=batchSize,
-                                shuffle=False, num_workers=0)
+    # dataRoot = "processed_data_MICCAI/"
+    dataRoot = "processed_data/"
 
-for data in train_dataloader_t:
-    train_dataloader.append(data)
+    transform_origin = transforms.Compose([
+        Rescale(config.origin_image_size),
+        ToTensor()
+    ])
 
-val_dataloader_t = DataLoader(val_dataset, batch_size=batchSize,
-                              shuffle=False, num_workers=4)
+    train_dataset_origin = LandmarksDataset(csv_file=dataRoot + config.traincsv,
+                                            root_dir=dataRoot + "images",
+                                            transform=transform_origin,
+                                            landmarksNum=config.landmarkNum
+                                            )
 
-for data in val_dataloader_t:
-    val_dataloader.append(data)
+    val_dataset = LandmarksDataset(csv_file=dataRoot + config.testcsv,
+                                   root_dir=dataRoot + "images",
+                                   transform=transform_origin,
+                                   landmarksNum=config.landmarkNum
+                                   )
 
-print(len(train_dataloader), len(val_dataloader))
+    train_dataloader = []
+    val_dataloader = []
 
-train_dataloader_t = ''
-val_dataloader_t = ''
+    train_dataloader_t = DataLoader(train_dataset_origin, batch_size=config.batchSize,
+                                    shuffle=False, num_workers=0)
+    if config.stage == 'train':
+        for data in train_dataloader_t:
+            train_dataloader.append(data)
 
-dataloaders = {'train': train_dataloader_t, 'val': val_dataloader}
+    val_dataloader_t = DataLoader(val_dataset, batch_size=config.batchSize,
+                                  shuffle=False, num_workers=0)
 
-criterion_coarse = LossFunction.coarse_heatmap(use_gpu, batchSize, landmarkNum, image_scale)
+    for data in val_dataloader_t:
+        val_dataloader.append(data)
 
-params = list(corseNet.parameters()) + list(fine_LSTM.parameters())
+    print(len(train_dataloader), len(val_dataloader))
 
-optimizer_ft = optim.Adam(params)
+    dataloaders = {'train': train_dataloader, 'val': val_dataloader}
 
-TrainNet.train_model(corseNet, fine_LSTM, dataloaders, criterion_coarse,
-                     optimizer_ft, epochs, use_gpu, saveName, landmarkNum, image_scale)
+    criterion_coarse = LossFunction.coarse_heatmap(config)
+    criterion_fine = LossFunction.fine_heatmap(config)
+
+    # Observe that all parameters are being optimized
+    params = list(coarseNet.parameters()) + list(fine_LSTM.parameters())
+
+    optimizer_ft = optim.Adam(params)
+
+    TrainNet.train_model(coarseNet, fine_LSTM, dataloaders, criterion_coarse, criterion_fine,
+                         optimizer_ft, config)
+
+if __name__ == "__main__":
+    main()
