@@ -1,5 +1,5 @@
 ## Introduction
-This is the source code of [Structure-Aware Long Short-Term Memory Network for 3D Cephalometric Landmark Detection](https://arxiv.org/pdf/1908.08841.pdf). The paper is accepted in IEEE Transactions on Medical Imaging 2022.
+This is the source code of [Structure-Aware Long Short-Term Memory Network for 3D Cephalometric Landmark Detection](https://ieeexplore.ieee.org/abstract/document/9705609). The paper is accepted in IEEE Transactions on Medical Imaging 2022.
 
 ## Prerequistes
 - Python 3.8
